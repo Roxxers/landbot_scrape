@@ -1,0 +1,11 @@
+
+{
+  "message_blocks": {
+    "example_block1": ["unefujnefjnfe", "sdfasd"],
+    "example_block2a": [""],
+    "example_block2b": [""]
+  },
+  "choices": {
+    "choices1": ["yes", "no"]
+  }
+}
