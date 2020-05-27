@@ -2,7 +2,7 @@ import json
 import os
 import time
 
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
@@ -18,6 +18,14 @@ selectors = {
     "bot_message": ".hu-message-text",
     "all_messages": ".hu-message-bubble"
 }
+
+
+def check_if_duplicates(list_of_elems: List[Any]) -> bool:
+    ''' Check if given list contains any duplicates '''
+    if len(list_of_elems) == len(set(list_of_elems)):
+        return False
+    else:
+        return True
 
 
 class AnyEc:
@@ -49,15 +57,19 @@ class Scraper:
     def __init__(self, page_url: str):
         self.id = page_url.split("/")[-2]
         self.url = page_url
-        self.browser = webdriver.Firefox()
-        self.timeout = 10 # Secs
+
+        self.timeout = 15 # Secs
         self.output = {"blocks": {}, "choices": {}}
-        self.no_of_choices = 0
-        self.loop_number = 1
+        self.no_of_input_sections = 0
+        self.loop_number = 0
         self.required_loops = 1
 
     def get(self):
         """being web scraping landbot.io page"""
+        self.browser = webdriver.Firefox()
+        self.loop_number += 1
+        self.prev_messages = set(
+        ) # This is used to store all previous bot messages, without duplicates
         self.browser.get(url)
         self.loop_through_page()
         all_messages = self.browser.find_elements_by_css_selector(
@@ -79,8 +91,13 @@ class Scraper:
         except FileExistsError:
             pass # Folder already exists
 
-        with open(f"./{self.id}/1.json", "w") as fp:
+        with open(f"./{self.id}/{self.loop_number}.json", "w") as fp:
             fp.write(json.dumps(self.output, ensure_ascii=False))
+
+    def decide_recursive_loop_amount(self, choices: List[str]):
+        no_choices = len(choices)
+        if no_choices > self.required_loops:
+            self.required_loops = no_choices
 
     def loop_through_page(self) -> None:
         """ loops through waiting for an input and then doing it.
@@ -91,8 +108,10 @@ class Scraper:
             try:
                 choices = self.wait_for_input() # Resolve any output needed
                 # Add choices to output to show
-                self.output["choices"][self.no_of_choices] = choices
-                self.no_of_choices += 1
+                self.output["choices"][self.no_of_input_sections] = choices
+                self.no_of_input_sections += 1
+                # Check if choices is more than current loop amount value
+                self.decide_recursive_loop_amount(choices)
                 time.sleep(2)
             except TimeoutException:
                 if page == self.browser.find_element_by_tag_name("body").text:
@@ -129,6 +148,9 @@ class Scraper:
             choices = [
                 x.find_element_by_tag_name("span").text for x in buttons
             ]
+            time.sleep(
+                0.2
+            ) # IF not sometimes there is some errors when the choices are deleted
             first_button.click()
             return choices
 
@@ -137,7 +159,29 @@ class Scraper:
         Decides what button to click when presented with one.
         Checks if loop has occurred.
         """
-        return buttons[0]
+        button_amount = len(buttons)
+
+        bot_messages = self.browser.find_elements_by_css_selector(
+            ".hu-background-color_bot-message-background"
+        )
+
+        prev_mesg = self.process_messages(bot_messages)
+
+        if check_if_duplicates(prev_mesg):
+            # If there is duplicates
+            # Stop previous duplicates from triggering this
+            # Removes most classes from previous bot messages
+            # But keeps "hu-message-bubble" to for the end of the script
+            self.browser.execute_script(
+                'list = document.getElementsByClassName("hu-message-bubble hu-position-relative hu-background-color_bot-message-background");for (var i = 0; i < list.length; i++){list[i].className="hu-message-bubble"}'
+            )
+            # Return first button to stop text loop
+            return buttons[0]
+
+        if button_amount == 1 or button_amount < self.loop_number:
+            return buttons[0]
+        else:
+            return buttons[self.loop_number - 1]
 
     def define_blocks(self, messages: List[str]) -> Blocks:
         user_mesg = self.browser.find_elements_by_css_selector(
@@ -157,7 +201,7 @@ class Scraper:
                     blocks[block_number] = messages[start_of_block:]
         return blocks
 
-    def process_messages(self, messages) -> List[str]:
+    def process_messages(self, messages: List[Element]) -> List[str]:
         all_processed_dialog = []
         for message in messages:
             all_processed_dialog.append(self.parse_message_bubble(message))
@@ -171,7 +215,11 @@ class Scraper:
         except NoSuchElementException:
             try:
                 image_element = message.find_element_by_tag_name("img")
-                return image_element.get_attribute('src')
+                image_src = image_element.get_attribute('src')
+                caption = message.find_elements_by_tag_name("p")
+                if caption:
+                    return "{}: {}".format(caption[0].text, image_src)
+                return image_src
             except NoSuchElementException:
                 try:
                     youtube = message.find_element_by_tag_name("iframe")
@@ -181,7 +229,13 @@ class Scraper:
                     return ""
 
 
-url = "https://landbot.io/u/H-351906-X5HRGP1JXFC4WEFG/index.html"
+urls = [
+    'https://landbot.io/u/H-62930-ZP46ZQSEK44QRYMQ/index.html',
+    'https://landbot.io/u/H-352102-P3SL3H01U8XL08OV/index.html',
+    'https://landbot.io/u/H-352137-OPZAVJDI1A0HTMJ1/index.html',
+    'https://landbot.io/u/H-351906-X5HRGP1JXFC4WEFG/index.html',
+]
 
-scraper = Scraper(url)
-scraper.get()
+for url in urls:
+    scraper = Scraper(url)
+    scraper.get()
