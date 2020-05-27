@@ -6,6 +6,8 @@ Script to scrape a number of landbot.io chat bot messages. This keeps intact cho
 
 Installation requires Python 3.6+, pip, and venv
 
+Also requires Firefox and the [Gecko drivers](https://github.com/mozilla/geckodriver/) for selenium to interact with Firefox.
+
 ```sh
 git clone REPO_URL
 cd landbot_scrape
