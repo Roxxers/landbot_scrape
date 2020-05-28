@@ -229,12 +229,8 @@ class Scraper:
                     return ""
 
 
-urls = [
-    'https://landbot.io/u/H-62930-ZP46ZQSEK44QRYMQ/index.html',
-    'https://landbot.io/u/H-352102-P3SL3H01U8XL08OV/index.html',
-    'https://landbot.io/u/H-352137-OPZAVJDI1A0HTMJ1/index.html',
-    'https://landbot.io/u/H-351906-X5HRGP1JXFC4WEFG/index.html',
-]
+with open("urls.json", "r") as fp:
+    urls = json.loads(fp.read())
 
 for url in urls:
     scraper = Scraper(url)

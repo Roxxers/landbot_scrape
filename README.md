@@ -18,7 +18,7 @@ python3 -m pip install -r requirements.txt
 
 ## Running
 
-TODO: Need to add section about url listing when finished doing that for multiple urls and not hardcoded.
+Add all required urls to scrape to the json file `urls.json`
 
 To run the script, make sure you are source'd into the virtual env, then run
 
